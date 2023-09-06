@@ -1,5 +1,6 @@
-#include <iostream>]
+#include <iostream>
 #include <unordered_map>
+#include <queue>
 
 /*
 This is a low level design of an ride sharing application with having the below mentioned functionalities:
@@ -16,7 +17,13 @@ This is a low level design of an ride sharing application with having the below 
 */
 
 
-enum RideStatus
+enum class DriverStatus
+{
+	IDLE,
+	BOOKED
+};
+
+enum class RideStatus
 {
 	IDLE,
 	CREATED,
@@ -39,16 +46,19 @@ public:
 	void setDest(int);
 	void setSeats(int);
 	void setRideStatus(RideStatus);
+	void setDriverId(int);
 
 	//getter
 	int getId();
-	int getRideStatus();
+	RideStatus getRideStatus();
+	int getDriverId();
 
 private:
 	int id;
 	int origin, dest;
 	int seats;
 	RideStatus rideStatus;
+	int driverId;
 };
 
 Ride::Ride()
@@ -99,52 +109,63 @@ int Ride::getId()
 	return this->id;
 }
 
-int Ride::getRideStatus()
+RideStatus Ride::getRideStatus()
 {
 	return this->rideStatus;
 }
 
+void Ride::setDriverId(int id)
+{
+	this->driverId = id;
+}
+
+int Ride::getDriverId()
+{
+	return this->driverId;
+}
 
 class Person
 {
 public:
-	std::string _name;
+	std::string name;
 };
 
 class Rider : private Person
 {
 private:
-	std::unordered_map<int, Ride> ridesCompleted;
+	std::unordered_map<int, Ride> ridesCompleted; 
 	Ride currentRide;
-
 public:
 	Rider(std:: string);
-	void createRide(int, int, int, int);
+	int createRide(int, int, int, int, int);
 	void updateRide(int, int, int, int);
 	void withdrawRide(int);
 	int closeRide();
+	int getDriverId();
 };
 
 Rider::Rider(std::string name)
 {
-	this->_name = name;
+	this->name = name;
 }
 
-void Rider::createRide(int id, int origin, int dest, int seats)
+int Rider::createRide(int id, int origin, int dest, int seats, int driverId)
 {
 	if (origin > dest)
 	{
 		std::cout << "Enter Valid origin and destination" << std::endl;
-		return;
+		return 0;
 	}
 	this->currentRide.setId(id);
 	this->currentRide.setOrigin(origin);
 	this->currentRide.setDest(dest);
 	this->currentRide.setSeats(seats);
-
+	this->currentRide.setDriverId(driverId);
 	this->currentRide.setRideStatus(RideStatus::CREATED);
 
+	return 1;
 }
+
 void Rider::updateRide(int id, int origin, int dest, int seats)
 {
 	if (this->currentRide.getRideStatus() == RideStatus::WITHDRAWN)
@@ -159,7 +180,7 @@ void Rider::updateRide(int id, int origin, int dest, int seats)
 		return;
 	}
 	
-	this->createRide(id, origin, dest, seats);
+	this->createRide(id, origin, dest, seats, this->getDriverId());
 }
 
 void Rider :: withdrawRide(int id)
@@ -193,41 +214,135 @@ int Rider::closeRide()
 	return currentRide.calculateFare();
 }
 
+int Rider::getDriverId()
+{
+	return this->currentRide.getDriverId();
+}
+
 class Driver : private Person
 {
+private:
+	DriverStatus driverStatus;
 public:
 	Driver(std::string);
+	std::string getName();
+	void setStatus(DriverStatus status);
+	DriverStatus getStatus();
 };
 
 Driver::Driver(std::string name)
 {
-	_name = name;
+	this->name = name;
+	driverStatus = DriverStatus::IDLE;
 }
+
+std::string Driver::getName()
+{
+	return this->name;
+}
+
+void Driver::setStatus(DriverStatus status)
+{
+	this->driverStatus = status;
+}
+
+DriverStatus Driver::getStatus()
+{
+	return this->driverStatus;
+}
+
 
 int main()
 {
 	std::cout << "Ride Sharing Application Starts....\n\n";
 
-	Rider rider("Ajay Kumar");
-	Driver driver("Sumit");
+	std::unordered_map<int, Driver*> mdriver;
+	std::queue<int> waitingQueue;
 
-	rider.createRide(0, 100, 20, 1);
-	std::cout << rider.closeRide() << std::endl;
-	rider.updateRide(0, 100, 20, 3);
-	std::cout << rider.closeRide() << std::endl;
+	Driver sundar = Driver("sundar");
+	Driver yuga = Driver("Yuga");
 
-	std::cout << "----------------------------------------------------\n\n";
+	mdriver.insert({ 1, &sundar });
+	mdriver.insert({2, &yuga});
 
-	rider.createRide(0, 10, 200, 1);
-	rider.withdrawRide(0);
-	rider.updateRide(0, 200, 20, 2);
-	std::cout << rider.closeRide() << std::endl;
+	waitingQueue.push(1);
+	waitingQueue.push(2);
 
-	std::cout << "----------------------------------------------------\n\n";
+	Rider rider("Ajay");
+	Rider rider2("Sumit");
+	Rider rider3("Manjit");
 
-	rider.createRide(0, 10, 200, 1);
-	rider.updateRide(0, 200, 20, 2);
-	std::cout << rider.closeRide() << std::endl;
+
+	if (!waitingQueue.empty())
+	{
+		int id = waitingQueue.front();
+
+		if (rider.createRide(0, 10, 100, 1,id) == 1)
+		{
+			mdriver[id]->setStatus(DriverStatus::BOOKED);
+			waitingQueue.pop();
+			std::cout<<"Ride booked with "<<mdriver[id]->getName()<<std::endl;
+		}
+	}
+	else
+	{
+		std::cout << "No diver is availalbe, Please wait for sometime\n\n";
+	}
+
+	if (!waitingQueue.empty())
+	{
+		int id = waitingQueue.front();
+
+		if (rider2.createRide(0, 0, 200, 1, id) == 1)
+		{
+			mdriver[id]->setStatus(DriverStatus::BOOKED);
+			waitingQueue.pop();
+			std::cout << "Ride booked with " << mdriver[id]->getName() << std::endl;
+		}
+	}
+	else
+	{
+		std::cout << "No diver is availalbe, Please wait for sometime\n\n";
+	}
+
+
+	if (!waitingQueue.empty())
+	{
+		int id = waitingQueue.front();
+
+		if (rider3.createRide(0, 20, 100, 1, id) == 1)
+		{
+			mdriver[id]->setStatus(DriverStatus::BOOKED);
+			waitingQueue.pop();
+			std::cout << "Ride booked with " << mdriver[id]->getName() << std::endl;
+		}
+	}
+	else
+	{
+		std::cout << "No diver is availalbe, Please wait for sometime\n\n";
+	}
+
+	int amount = rider.closeRide();
+	if (amount)
+	{
+		int driverid = rider.getDriverId();
+		mdriver[driverid]->setStatus(DriverStatus::IDLE);
+		waitingQueue.push(driverid);
+		std::cout << "Ride eneded with:"<< mdriver[driverid]->getName()<<" Amount paid: "<<amount << std::endl;
+	}
+	rider.updateRide(0, 100, 20, 3); 
+	 
+	amount = rider2.closeRide();
+	if (amount)
+	{
+		int driverid = rider2.getDriverId();
+		mdriver[driverid]->setStatus(DriverStatus::IDLE);
+		waitingQueue.push(driverid);
+		std::cout << "Ride eneded with:" << mdriver[driverid]->getName() << " Amount paid: " << amount << std::endl;
+	}
+
+	std::cout << "----------------------------------------------------\n\n"; 
+	 
 
 	return 0;
 }
